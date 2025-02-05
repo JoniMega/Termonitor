@@ -109,7 +109,7 @@ def llistat_processos(process_iter):
 
 
 buffer = []
-os.system('cls' if os.name == 'nt' else 'clear')
+
 
 _mode_ajuda = False
 _mode_guardar = False
@@ -134,11 +134,20 @@ for argument in range(1, n_arguments):
     if sys.argv[argument] == '-c':
         _mode_config = True
 
-print('-----Inicialització-----')
+
 if _mode_ajuda:
     print('usage: ' + sys.argv[0] + ' [option]')
-    print('Options list:\n-h\t: print this help message and exit\n-s\t: Storing Mode enabled')
+    print('Options list:\n'
+          '-h\t: Print this help message and exit\n'
+          '-s\t: Storing Mode enabled\n'
+          '-g\t: Graph Mode enabled\n'
+          '-n\t: Net Mode enabled\n'
+          '-d\t: Debug Mode enabled\n'
+          '-c\t: ReConfig Mode enabled')
     sys.exit()
+
+os.system('cls' if os.name == 'nt' else 'clear')
+print('-----Inicialització-----')
 if _mode_guardar:
     print('Mode Guardar Dades: ' + bcolors.OKBLUE + 'Activat' + bcolors.ENDC)
 else:
@@ -201,7 +210,7 @@ else:
     config = read_config()
     if config.get('idioma') == 'None' or _mode_config:
         config = ini_config()
-    create_config(idioma=config.get('idioma'), sensor_gpu=config.get('sensor_gpu'), sensor_cpu=config.get('sensor_cpu'))
+    create_config(idioma=config.get('idioma'), sensor_gpu=config.get('sensor_gpu'), sensor_cpu=config.get('sensor_cpu'), interficie_net = config.get('interficie_net'))
 
 
 if _mode_guardar or _mode_grafica:
@@ -211,7 +220,7 @@ if _mode_guardar or _mode_grafica:
 
 time.sleep(2)
 
-max_net = psutil.net_if_stats().get('eno1').speed
+max_net = psutil.net_if_stats().get(config.get('interficie_net')).speed
 in_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_recv
 out_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_sent
 time_net = datetime.datetime.now()
@@ -236,8 +245,8 @@ while (True):
 
 
     if _mode_net:
-        in_net = psutil.net_io_counters(pernic=True, nowrap=True).get('eno1').bytes_recv - in_net
-        out_net = psutil.net_io_counters(pernic=True, nowrap=True).get('eno1').bytes_sent - out_net
+        in_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_recv - in_net
+        out_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_sent - out_net
         vel_in_net = in_net/(datetime.datetime.now()-time_net).total_seconds()
         vel_out_net = out_net / (datetime.datetime.now() - time_net).total_seconds()
         time_net = datetime.datetime.now()
