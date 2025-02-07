@@ -1,16 +1,11 @@
-import itertools
-
 import psutil
 import shutil
 import time
 import os
 import datetime
-import csv
 import sys
-import plotext as plt
 import pyamdgpuinfo
 from prettytable import PrettyTable
-from sympy.strategies.core import switch
 
 from baseDades import guardar_temp_gpu, creacio_base_dades, lectura_base_dades
 from configurador import create_config, read_config
@@ -53,10 +48,10 @@ def barra(limit, percentatge = 0, titol = '', titolmin = 0, sufix = '', sufixmin
         for i in range(0,sufixmin-len(sufix)):
             sufix = ' ' + sufix
 
-    midaBarra = limit-2-max(len(titol),titolmin)-len(sufix)
+    mida_barra = limit-2-max(len(titol),titolmin)-len(sufix)
 
-    for lin in range(0,midaBarra):
-        if lin/midaBarra < percentatge:
+    for lin in range(0,mida_barra):
+        if lin/mida_barra < percentatge:
             aux = aux + '█'
         else:
             aux = aux + ' '
@@ -65,14 +60,14 @@ def barra(limit, percentatge = 0, titol = '', titolmin = 0, sufix = '', sufixmin
 
 def barra_carrega(columnes, titol, titolmin = 0, carrega = 0, warning = 90, danger = 100, limit = 100, unitat = '', unitatmin = 0, truncatge = True):
     if truncatge:
-        if carrega >= warning and carrega < danger:
+        if warning <= carrega < danger:
             aux = bcolors.WARNING + barra(columnes, carrega/limit, titol, titolmin, (str(int(carrega)) + unitat), unitatmin) + bcolors.ENDC
         elif carrega >= danger:
             aux = bcolors.FAIL + barra(columnes, carrega/limit, titol, titolmin, (str(int(carrega)) + unitat), unitatmin) + bcolors.ENDC
         else:
             aux = barra(columnes, carrega/limit, titol, titolmin, (str(int(carrega)) + unitat), unitatmin)
     else:
-        if carrega >= warning and carrega < danger:
+        if warning <= carrega < danger:
             aux = bcolors.WARNING + barra(columnes, carrega/limit, titol, titolmin, (str(carrega) + unitat), unitatmin) + bcolors.ENDC
         elif carrega >= danger:
             aux = bcolors.FAIL + barra(columnes, carrega/limit, titol, titolmin, (str(carrega) + unitat), unitatmin) + bcolors.ENDC
@@ -80,29 +75,29 @@ def barra_carrega(columnes, titol, titolmin = 0, carrega = 0, warning = 90, dang
             aux = barra(columnes, carrega/limit, titol, titolmin, (str(carrega) + unitat), unitatmin)
     return aux
 
-def minim_byte(bytes):
-    if int(bytes) < 0:
-        return (bytes, 0)
+def minim_byte(num_bytes):
+    if int(num_bytes) < 0:
+        return num_bytes, 0
 
-    cont = 0
-    while (int(bytes) > 0):
-        bytes = bytes / 1024
-        cont = +1
-    return (bytes * 1024, cont)
+    ordre_magnitut = 0
+    while int(num_bytes) > 0:
+        num_bytes = num_bytes / 1024
+        ordre_magnitut = +1
+    return num_bytes * 1024, ordre_magnitut
 
-def sort_CPU(e):
+def sort_cpu(e):
   return e[1]
 
-def llistat_processos(process_iter):
+def llistat_processos(processos):
     llistatprocessos = list()
 
-    for process in process_iter:
-        cpu =process.cpu_percent()
-        memo = process.memory_percent()
-        if cpu >= 1 or  memo >= 1:
-            llistatprocessos.append([process.name(),cpu,int(memo)])
+    for process in processos:
+        cpu_proc =process.cpu_percent()
+        memo_proc = process.memory_percent()
+        if cpu_proc >= 1 or  memo_proc >= 1:
+            llistatprocessos.append([process.name(), cpu_proc, int(memo_proc)])
 
-    llistatprocessos.sort(key=sort_CPU, reverse=True)
+    llistatprocessos.sort(key=sort_cpu, reverse=True)
     return llistatprocessos
 
 ############################################################################################
@@ -223,6 +218,8 @@ time.sleep(2)
 max_net = psutil.net_if_stats().get(config.get('interficie_net')).speed
 in_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_recv
 out_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_sent
+in_net_ant = 0
+out_net_ant = 0
 time_net = datetime.datetime.now()
 vel_in_net = 0
 vel_out_net = 0
@@ -232,7 +229,7 @@ max_memo_cpu = psutil.virtual_memory().total / (1024 ** 3)
 first_gpu = pyamdgpuinfo.get_gpu(0)
 max_vram_gpu = round(first_gpu.memory_info.get('vram_size')/(1024**3))
 
-while (True):
+while True:
     temps = datetime.datetime.now()
 
     mida = shutil.get_terminal_size()
@@ -245,11 +242,13 @@ while (True):
 
 
     if _mode_net:
-        in_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_recv - in_net
-        out_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_sent - out_net
-        vel_in_net = in_net/(datetime.datetime.now()-time_net).total_seconds()
-        vel_out_net = out_net / (datetime.datetime.now() - time_net).total_seconds()
+        in_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_recv
+        out_net = psutil.net_io_counters(pernic=True, nowrap=True).get(config.get('interficie_net')).bytes_sent
+        vel_in_net = (in_net-in_net_ant) / (datetime.datetime.now() - time_net).total_seconds()
+        vel_out_net = (out_net-out_net_ant) / (datetime.datetime.now() - time_net).total_seconds()
         time_net = datetime.datetime.now()
+        in_net_ant = in_net
+        out_net_ant = out_net
 
 
     if _mode_guardar:
@@ -283,17 +282,6 @@ while (True):
 
 
 
-    """
-    plt.clear_data()
-    plt.plot_size(height=30)
-    temperaturesgpu = list()
-    temps = list()
-    for i in range(0,len(historial_temp_gpu)):
-        temperaturesgpu.append(float((historial_temp_gpu[i][1])))
-    plt.plot(temperaturesgpu)
-    """
-
-
     temps_durat = (datetime.datetime.now()-temps).microseconds
     temps_durat_seg = (temps_durat/10**6)
     buffer.append(
@@ -302,9 +290,9 @@ while (True):
 
     os.system('cls' if os.name == 'nt' else 'clear')
     print('\n'.join(buffer))
-    #plt.show()
+
     buffer.clear()
-    if(temps_durat_seg<2):
+    if temps_durat_seg<2:
         time.sleep(2-temps_durat_seg)
     
 
